@@ -17,6 +17,9 @@ def before_scenario(context, scenario):
         "credentials_enable_service": False,
         "profile.password_manager_enabled": False
     })
+    options.add_argument("--no-sandbox")  # Necesario en CI
+    options.add_argument("--disable-dev-shm-usage")  # Previene crashes
+    options.add_argument("--headless=new")  # Chrome >= 112
     context.driver = webdriver.Chrome(options=options)
     context.driver.implicitly_wait(15)
     context.driver.maximize_window()

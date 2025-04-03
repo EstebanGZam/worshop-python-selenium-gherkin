@@ -1,0 +1,53 @@
+name: Python Selenium Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch: # Permite ejecuciones manuales desde la UI de GitHub
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10 # Evita ejecuciones infinitas
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.12"
+          cache: "pip" # Habilita caché para instalaciones más rápidas
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y chromium-browser chromium-chromedriver
+          # Verifica la instalación (debug)
+          chromium-browser --version
+          chromedriver --version
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt --no-cache-dir
+          # Instala dependencias adicionales si no están en requirements.txt
+          pip install behave-html-formatter
+
+      - name: Run tests with Behave
+        run: |
+          export PATH=$PATH:/usr/lib/chromium-browser/  # Asegura que ChromeDriver esté en PATH
+          behave -f html -o test-report.html --tags=~@wip  # Excluye tests marcados como WIP
+        env:
+          HEADLESS: "true" # Ejecución sin interfaz gráfica
+          PYTHONUNBUFFERED: "1" # Logs en tiempo real
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: behave-test-report
+          path: test-report.html
