@@ -22,43 +22,27 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install Google Chrome and ChromeDriver
+      - name: Verify Chrome & ChromeDriver (Preinstalados)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget
-          # Instalar Google Chrome
-          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
-          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
-          sudo apt-get update
-          sudo apt-get install -y google-chrome-stable || [[ $? -eq 8 ]]  # Ignora error 8
-
-          # Instalar ChromeDriver
-          CHROME_VERSION=$(google-chrome-stable --version | awk '{print $3}' | cut -d '.' -f 1)
-          CHROMEDRIVER_VERSION=$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION})
-          wget -q https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip
-          sudo unzip -o chromedriver_linux64.zip -d /usr/local/bin
-          sudo chmod +x /usr/local/bin/chromedriver
-          rm chromedriver_linux64.zip
-          # Verificar instalación
-          google-chrome-stable --version
-          chromedriver --version
+          google-chrome --version  # Verifica Chrome
+          chromedriver --version   # Verifica ChromeDriver
 
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt --no-cache-dir
+          pip install -r requirements.txt behave-html-formatter --no-cache-dir
 
       - name: Run tests with Behave
         run: |
-          export PATH=$PATH:/usr/local/bin  # Asegura que ChromeDriver esté en PATH
-          behave -f behave_html_formatter:HTMLFormatter -o test-report.html
+          mkdir -p reports  # Crea directorio para reportes
+          behave -f behave_html_formatter:HTMLFormatter -o reports/test-report.html
         env:
-          HEADLESS: "true" # Ejecución sin interfaz gráfica
-          PYTHONUNBUFFERED: "1" # Logs en tiempo real
+          HEADLESS: "true"
+          PYTHONUNBUFFERED: "1"
 
       - name: Upload test report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: behave-test-report
-          path: test-report.html
+          path: reports/test-report.html # Ruta del reporte HTML
