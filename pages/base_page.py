@@ -20,3 +20,17 @@ class BasePage:
 
     def wait_for_element(self, locator):
         return self.wait.until(EC.visibility_of_element_located(locator))
+    
+    def is_displayed(self, locator, timeout=10):
+        """
+        Verifica si un elemento está visible en la página.
+        :param locator: Tupla (By, selector), ej: (By.ID, "elemento").
+        :param timeout: Tiempo máximo de espera (opcional).
+        :return: True si el elemento está visible, False si no.
+        """
+        try:
+            WebDriverWait(self.driver, timeout).until(
+                EC.visibility_of_element_located(locator))
+            return True
+        except:
+            return False
