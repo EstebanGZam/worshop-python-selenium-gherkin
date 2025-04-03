@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 jobs:
   test:
@@ -12,50 +13,51 @@ jobs:
     timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.12
         uses: actions/setup-python@v4
         with:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install Chrome and ChromeDriver
+      - name: Install Google Chrome and ChromeDriver
         run: |
           sudo apt-get update
           sudo apt-get install -y wget
-          # Instala Chrome oficial
-          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          # Instalar Google Chrome
+          wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
           echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
           sudo apt-get update
           sudo apt-get install -y google-chrome-stable
-          # Instala ChromeDriver compatible
-          CHROME_VERSION=$(google-chrome-stable --version | awk '{print $3}')
-          CHROME_MAJOR_VERSION=${CHROME_VERSION%%.*}
-          wget -q https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION} -O /tmp/chromedriver-version
-          CHROMEDRIVER_VERSION=$(cat /tmp/chromedriver-version)
-          wget -q https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip -O /tmp/chromedriver.zip
-          sudo unzip -o /tmp/chromedriver.zip -d /usr/local/bin/
+          # Instalar ChromeDriver (versión compatible)
+          CHROME_VERSION=$(google-chrome-stable --version | awk '{print $3}' | cut -d '.' -f 1)
+          CHROMEDRIVER_VERSION=$(wget -qO- https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_VERSION})
+          wget -q https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip
+          sudo unzip -o chromedriver_linux64.zip -d /usr/local/bin
           sudo chmod +x /usr/local/bin/chromedriver
-          # Verifica instalación
+          rm chromedriver_linux64.zip
+          # Verifica las instalaciones (debug)
           google-chrome-stable --version
           chromedriver --version
 
       - name: Install Python dependencies
         run: |
-          pip install --upgrade pip
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt --no-cache-dir
 
-      - name: Run tests
+      - name: Run tests with Behave
         run: |
-          export PATH=$PATH:/usr/local/bin  # Asegura acceso a chromedriver
+          export PATH=$PATH:/usr/local/bin  # Asegura que ChromeDriver esté en PATH
           behave -f behave_html_formatter:HTMLFormatter -o test-report.html
         env:
-          PYTHONUNBUFFERED: "1"
+          HEADLESS: "true" # Ejecución sin interfaz gráfica
+          PYTHONUNBUFFERED: "1" # Logs en tiempo real
 
-      - name: Upload report
-        uses: actions/upload-artifact@v4
+      - name: Upload test report
         if: always()
+        uses: actions/upload-artifact@v4
         with:
-          name: behave-report
+          name: behave-test-report
           path: test-report.html
