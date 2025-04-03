@@ -5,47 +5,57 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
-  workflow_dispatch: # Permite ejecuciones manuales desde la UI de GitHub
 
 jobs:
   test:
     runs-on: ubuntu-latest
-    timeout-minutes: 10 # Evita ejecuciones infinitas
+    timeout-minutes: 10
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python 3.12
+      - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.12"
-          cache: "pip" # Habilita caché para instalaciones más rápidas
+          cache: "pip"
 
-      - name: Install system dependencies
+      - name: Install Chrome and ChromeDriver
         run: |
           sudo apt-get update
-          sudo apt-get install -y chromium-browser chromium-chromedriver
-          # Verifica la instalación (debug)
-          chromium-browser --version
+          sudo apt-get install -y wget
+          # Instala Chrome oficial
+          wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+          echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+          sudo apt-get update
+          sudo apt-get install -y google-chrome-stable
+          # Instala ChromeDriver compatible
+          CHROME_VERSION=$(google-chrome-stable --version | awk '{print $3}')
+          CHROME_MAJOR_VERSION=${CHROME_VERSION%%.*}
+          wget -q https://chromedriver.storage.googleapis.com/LATEST_RELEASE_${CHROME_MAJOR_VERSION} -O /tmp/chromedriver-version
+          CHROMEDRIVER_VERSION=$(cat /tmp/chromedriver-version)
+          wget -q https://chromedriver.storage.googleapis.com/${CHROMEDRIVER_VERSION}/chromedriver_linux64.zip -O /tmp/chromedriver.zip
+          sudo unzip -o /tmp/chromedriver.zip -d /usr/local/bin/
+          sudo chmod +x /usr/local/bin/chromedriver
+          # Verifica instalación
+          google-chrome-stable --version
           chromedriver --version
 
       - name: Install Python dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt --no-cache-dir
+          pip install --upgrade pip
+          pip install -r requirements.txt
 
-      - name: Run tests with Behave
+      - name: Run tests
         run: |
-          export PATH=$PATH:/usr/lib/chromium-browser/  # Asegura que ChromeDriver esté en PATH
+          export PATH=$PATH:/usr/local/bin  # Asegura acceso a chromedriver
           behave -f behave_html_formatter:HTMLFormatter -o test-report.html
         env:
-          HEADLESS: "true" # Ejecución sin interfaz gráfica
-          PYTHONUNBUFFERED: "1" # Logs en tiempo real
+          PYTHONUNBUFFERED: "1"
 
-      - name: Upload test report
-        if: always()
+      - name: Upload report
         uses: actions/upload-artifact@v4
+        if: always()
         with:
-          name: behave-test-report
+          name: behave-report
           path: test-report.html
